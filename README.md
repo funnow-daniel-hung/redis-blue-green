@@ -1,8 +1,8 @@
 # Redis 蓝绿部署本地实验环境
 
 这是一个完整的 Redis 蓝绿升级方案本地实验环境，使用 Docker Compose 搭建，包含：
-- **蓝色 Redis**：Redis 5.0.14（旧版本）- 端口 6379
-- **绿色 Redis**：Redis 6.2.14（新版本）- 端口 6380
+- **蓝色 Redis**：Redis 4.0.10（旧版本）- 端口 6379
+- **绿色 Valkey**：Valkey 7.2.5（新版本）- 端口 6380
 - **Redis-Shake**：数据同步工具
 
 ## 项目结构
@@ -41,8 +41,8 @@ cd redis-blue-green
 ```
 
 这将启动：
-- 蓝色 Redis (5.0.14) 在 `localhost:6379`
-- 绿色 Redis (6.2.14) 在 `localhost:6380`
+- 蓝色 Redis (4.0.10) 在 `localhost:6379`
+- 绿色 Valkey (7.2.5) 在 `localhost:6380`
 
 ### 2. 写入测试数据到蓝色 Redis
 
@@ -75,7 +75,7 @@ cd redis-blue-green
 ```
 
 这个脚本会显示：
-- 两个实例的键数量对比
+- Redis 4.0 和 Valkey 7.2 的键数量对比
 - 内存使用情况
 - 命令执行统计
 - 抽样数据一致性检查
@@ -451,13 +451,15 @@ done
    - 建议在低负载时执行全量同步
 
 4. **版本兼容性**
-   - 本环境测试 Redis 5.0 → 6.2 的升级
-   - Redis-Shake 支持 Redis 2.8 到 7.x 的所有版本
-   - 向下兼容性未经充分测试
+   - 本环境演示 Redis 4.0.10 → Valkey 7.2.5 的迁移
+   - Valkey 100% 兼容 Redis 协议，所有 Redis 命令正常工作
+   - Redis-Shake 支持 Redis 2.8 到 7.x 以及 Valkey 的所有版本
 
 ## 参考资料
 
 - [Redis 官方文档](https://redis.io/documentation)
+- [Valkey 官网](https://valkey.io/)
+- [Valkey GitHub](https://github.com/valkey-io/valkey)
 - [Redis-Shake GitHub](https://github.com/tair-opensource/RedisShake)
 - [AWS ElastiCache 蓝绿升级文档](https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/engine-versions.html)
 - [Docker Compose 文档](https://docs.docker.com/compose/)

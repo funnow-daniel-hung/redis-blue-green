@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Redis 4.0 → 7.0 完整迁移演示脚本
+# Redis 4.0.10 → Valkey 7.2.5 完整迁移演示脚本
 # 演示流程：启动 → 导入数据 → RDB备份 → 恢复 → PSYNC增量同步
 
 set -e
@@ -43,9 +43,9 @@ wait_for_redis() {
 }
 
 # ============================================================
-# 步骤 1: 启动 Redis 4.0 (blue) 和 Redis 7.0 (green)
+# 步骤 1: 启动 Redis 4.0.10 (blue) 和 Valkey 7.2.5 (green)
 # ============================================================
-log_step "1" "启动 Redis 4.0 (蓝色) 和 Redis 7.0 (绿色)"
+log_step "1" "启动 Redis 4.0.10 (蓝色) 和 Valkey 7.2.5 (绿色)"
 
 cd "$(dirname "$0")/.."
 
@@ -71,9 +71,9 @@ echo ""
 sleep 2
 
 # ============================================================
-# 步骤 2: 向 Redis 4.0 导入测试数据
+# 步骤 2: 向 Redis 4.0.10 导入测试数据
 # ============================================================
-log_step "2" "向 Redis 4.0 (源) 导入测试数据"
+log_step "2" "向 Redis 4.0.10 (源) 导入测试数据"
 
 log_info "写入 10,000 条测试数据..."
 
@@ -184,8 +184,8 @@ GREEN_MEMORY=$(docker exec redis-green redis-cli INFO MEMORY | grep used_memory_
 
 echo ""
 echo "📈 数据对比："
-echo "   源库 (Redis 4.0)  - 键数量: $BLUE_KEYS, 内存: $BLUE_MEMORY"
-echo "   目标库 (Redis 7.0) - 键数量: $GREEN_KEYS, 内存: $GREEN_MEMORY"
+echo "   源库 (Redis 4.0.10)  - 键数量: $BLUE_KEYS, 内存: $BLUE_MEMORY"
+echo "   目标库 (Valkey 7.2.5) - 键数量: $GREEN_KEYS, 内存: $GREEN_MEMORY"
 echo ""
 
 if [ "$BLUE_KEYS" -eq "$GREEN_KEYS" ]; then
@@ -210,7 +210,7 @@ echo "   redis-shake 通过 PSYNC 协议持续接收主库的写操作"
 echo ""
 
 # 写入新数据
-log_info "写入 1000 条新数据到 Redis 4.0..."
+log_info "写入 1000 条新数据到 Redis 4.0.10..."
 docker exec redis-blue bash -c '
 for i in {20001..21000}; do
     redis-cli SET "new_user:$i" "NewUser_$i" > /dev/null
@@ -227,8 +227,8 @@ GREEN_KEYS_NEW=$(docker exec redis-green redis-cli DBSIZE | tr -d '\r')
 
 echo ""
 echo "📈 增量同步后的数据对比："
-echo "   源库 (Redis 4.0)  - 键数量: $BLUE_KEYS_NEW"
-echo "   目标库 (Redis 7.0) - 键数量: $GREEN_KEYS_NEW"
+echo "   源库 (Redis 4.0.10)  - 键数量: $BLUE_KEYS_NEW"
+echo "   目标库 (Valkey 7.2.5) - 键数量: $GREEN_KEYS_NEW"
 echo ""
 
 if [ "$BLUE_KEYS_NEW" -eq "$GREEN_KEYS_NEW" ]; then
@@ -290,11 +290,11 @@ echo ""
 log_step "8" "迁移演示完成！"
 
 echo ""
-echo "🎉 Redis 4.0 → 7.0 迁移流程演示完成！"
+echo "🎉 Redis 4.0.10 → Valkey 7.2.5 迁移流程演示完成！"
 echo ""
 echo "📊 最终状态："
-echo "   - Redis 4.0 (源): 端口 6379, 键数量: $BLUE_KEYS_NEW"
-echo "   - Redis 7.0 (目标): 端口 6380, 键数量: $GREEN_KEYS_NEW"
+echo "   - Redis 4.0.10 (源): 端口 6379, 键数量: $BLUE_KEYS_NEW"
+echo "   - Valkey 7.2.5 (目标): 端口 6380, 键数量: $GREEN_KEYS_NEW"
 echo "   - redis-shake: 持续运行中（增量同步）"
 echo ""
 echo "🔧 后续操作："
@@ -316,7 +316,7 @@ echo ""
 echo "5. 停止同步（准备切换）："
 echo "   docker-compose stop redis-shake"
 echo ""
-echo "6. 切换应用到新 Redis 7.0："
+echo "6. 切换应用到新 Valkey 7.2.5："
 echo "   修改应用配置，将端口从 6379 改为 6380"
 echo ""
 echo "7. 清理环境："
