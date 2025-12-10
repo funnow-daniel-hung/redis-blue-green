@@ -1,12 +1,12 @@
-# Redis 4.0.10 → Valkey 7.2 迁移演示指南
+# Redis 4.0.10 → Valkey 8.2 迁移演示指南
 
-完整的 Redis 蓝绿部署迁移环境，演示从 Redis 4.0.10 升级到 Valkey 7.2 的全流程。
+完整的 Redis 蓝绿部署迁移环境，演示从 Redis 4.0.10 升级到 Valkey 8.2 的全流程。
 
 ## 架构说明
 
 ```
 ┌─────────────────┐         ┌──────────────────┐
-│  Redis 4.0.10   │         │  Valkey 7.2.5    │
+│  Redis 4.0.10   │         │  Valkey 8.2      │
 │  (蓝色/源库)     │         │  (绿色/目标库)    │
 │  Port: 6379     │         │  Port: 6380      │
 └────────┬────────┘         └────────▲─────────┘
@@ -32,7 +32,7 @@ cd redis-blue-green
 ```
 
 这个脚本会自动完成：
-- ✅ 启动 Redis 4.0 和 7.0 实例
+- ✅ 启动 Redis 4.0.10 和 Valkey 8.2 实例
 - ✅ 导入 10,000+ 条测试数据
 - ✅ 创建 RDB 备份
 - ✅ 启动 redis-shake 进行全量同步
@@ -63,7 +63,7 @@ docker exec redis-blue redis-cli INFO SERVER | grep redis_version
 # redis_version:4.0.14
 
 docker exec redis-green redis-cli INFO SERVER | grep redis_version
-# redis_version:7.0.15
+# redis_version:8.2.0
 ```
 
 #### 2️⃣ 向 Redis 4.0 导入测试数据
@@ -191,13 +191,13 @@ docker exec redis-green redis-cli DBSIZE
    redis-shake → PSYNC ? -1
    Redis 4.0  → +FULLRESYNC <runid> <offset>
    Redis 4.0  → [发送 RDB 快照]
-   redis-shake → [解析 RDB，写入 Redis 7.0]
+   redis-shake → [解析 RDB，写入 Valkey 8.2]
    ```
 
 3. **增量同步阶段 (AOF/PSYNC)**：
    ```
    Redis 4.0  → [持续发送写命令]
-   redis-shake → [实时转发到 Redis 7.0]
+   redis-shake → [实时转发到 Valkey 8.2]
    ```
 
 ### 查看 PSYNC 日志
@@ -259,7 +259,7 @@ connected_slaves:1
 slave0:ip=172.18.0.4,port=39876,state=online,offset=12345,lag=0
 ```
 
-**目标库 (Redis 7.0)**：
+**目标库 (Valkey 8.2)**：
 ```bash
 docker exec redis-green redis-cli INFO replication
 ```
@@ -270,7 +270,7 @@ role:master
 connected_slaves:0
 ```
 
-> 注意：Redis 7.0 仍然是主库，redis-shake 作为客户端写入数据
+> 注意：Valkey 8.2 仍然是主库，redis-shake 作为客户端写入数据
 
 ## 常见问题
 
@@ -381,7 +381,7 @@ docker-compose stop redis-shake
 redis-blue-green/
 ├── docker-compose.yaml           # 服务编排
 ├── redis-blue/redis.conf         # Redis 4.0 配置
-├── redis-green/redis.conf        # Redis 7.0 配置
+├── redis-green/redis.conf        # Valkey 8.2 配置
 ├── redis-shake/
 │   ├── Dockerfile                # redis-shake 镜像
 │   ├── shake.toml                # 同步配置
@@ -394,7 +394,7 @@ redis-blue-green/
 │   └── view-logs.sh              # 日志查看工具
 └── data/                         # 持久化数据
     ├── redis-blue/               # Redis 4.0 数据
-    └── redis-green/              # Redis 7.0 数据
+    └── redis-green/              # Valkey 8.2 数据
 ```
 
 ## 进阶配置
@@ -483,7 +483,7 @@ redis-shake 同时使用两者：
 
 ✅ **零停机时间**：业务无需中断
 ✅ **数据一致性**：增量同步保证数据完整
-✅ **版本跨越**：支持大版本升级（4.0 → 7.0）
+✅ **版本跨越**：支持大版本升级（4.0.10 → 8.2）
 ✅ **可回滚**：迁移失败可快速切回旧版本
 ✅ **可验证**：提供完整的监控和验证工具
 

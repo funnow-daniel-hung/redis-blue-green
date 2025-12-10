@@ -362,3 +362,51 @@
 {"level":"info","time":"2025-12-10T09:15:27Z","message":"Got signal: terminated."}
 {"level":"info","time":"2025-12-10T09:15:31Z","message":"read_count=[6023], read_ops=[0.00], write_count=[6023], write_ops=[0.00], syncing aof, diff=[0]"}
 {"level":"info","time":"2025-12-10T09:15:36Z","message":"read_count=[6023], read_ops=[0.00], write_count=[6023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"log_level: [info], log_file: [/app/logs/redis-shake.log]"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"changed work dir. dir=[/app/data]"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"set ncpu to 4"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"set GOMAXPROCS to 4"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"not set pprof port"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"create SyncStandaloneReader: redis-blue:6379"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"turn off the reply of write"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"create RedisStandaloneWriter: redis-green:6379"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"status information: http://localhost:8001"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"status information: watch -n 0.3 'curl -s http://localhost:8001 | python -m json.tool'"}
+{"level":"info","time":"2025-12-10T09:41:40Z","message":"start syncing..."}
+{"level":"info","time":"2025-12-10T09:41:45Z","message":"read_count=[1020], read_ops=[0.00], write_count=[1020], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:41:50Z","message":"read_count=[1020], read_ops=[0.00], write_count=[1020], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:41:55Z","message":"read_count=[1020], read_ops=[0.00], write_count=[1020], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:00Z","message":"read_count=[1020], read_ops=[0.00], write_count=[1020], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:05Z","message":"read_count=[1020], read_ops=[0.00], write_count=[1020], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:10Z","message":"read_count=[1020], read_ops=[0.00], write_count=[1020], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:15Z","message":"read_count=[1020], read_ops=[0.00], write_count=[1020], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:20Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:25Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:30Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:35Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:40Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:45Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:50Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:42:55Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:00Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:05Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:10Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:15Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:20Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:25Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:30Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:35Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:40Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:45Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:50Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:43:55Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:44:00Z","message":"read_count=[1023], read_ops=[0.00], write_count=[1023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:44:05Z","message":"read_count=[5870], read_ops=[1228.85], write_count=[5870], write_ops=[1228.85], syncing aof, diff=[294]"}
+{"level":"info","time":"2025-12-10T09:44:10Z","message":"read_count=[6023], read_ops=[0.00], write_count=[6023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:44:15Z","message":"read_count=[6023], read_ops=[0.00], write_count=[6023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:44:20Z","message":"read_count=[6023], read_ops=[0.00], write_count=[6023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:44:25Z","message":"read_count=[6023], read_ops=[0.00], write_count=[6023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:44:30Z","message":"read_count=[6023], read_ops=[0.00], write_count=[6023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:44:30Z","message":"Got signal: terminated."}
+{"level":"info","time":"2025-12-10T09:44:35Z","message":"read_count=[6023], read_ops=[0.00], write_count=[6023], write_ops=[0.00], syncing aof, diff=[0]"}
+{"level":"info","time":"2025-12-10T09:44:40Z","message":"read_count=[6023], read_ops=[0.00], write_count=[6023], write_ops=[0.00], syncing aof, diff=[0]"}
