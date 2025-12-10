@@ -20,9 +20,9 @@ services:
       timeout: 3s
       retries: 3
 
-  # 绿色 Valkey（新版本 8.2）
+  # 绿色 Valkey（新版本 8.1）
   redis-green:
-    image: valkey/valkey:8.2
+    image: valkey/valkey:8.1
     container_name: redis-green
     ports:
       - "6380:6379"

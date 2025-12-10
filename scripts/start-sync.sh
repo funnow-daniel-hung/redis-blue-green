@@ -34,7 +34,7 @@ docker exec redis-green redis-cli DBSIZE
 # 启动 Redis-Shake
 echo ""
 echo "启动 Redis-Shake 同步服务..."
-echo "这将从 Redis 4.0.10 同步数据到 Valkey 8.2"
+echo "这将从 Redis 4.0.10 同步数据到 Valkey 8.1"
 echo ""
 
 # 使用 profile 启动 redis-shake

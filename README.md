@@ -2,7 +2,7 @@
 
 这是一个完整的 Redis 蓝绿升级方案本地实验环境，使用 Docker Compose 搭建，包含：
 - **蓝色 Redis**：Redis 4.0.10（旧版本）- 端口 6379
-- **绿色 Valkey**：Valkey 8.2（新版本）- 端口 6380
+- **绿色 Valkey**：Valkey 8.1（新版本）- 端口 6380
 - **Redis-Shake**：数据同步工具
 
 ## 项目结构
@@ -42,7 +42,7 @@ cd redis-blue-green
 
 这将启动：
 - 蓝色 Redis (4.0.10) 在 `localhost:6379`
-- 绿色 Valkey (8.2) 在 `localhost:6380`
+- 绿色 Valkey (8.1) 在 `localhost:6380`
 
 ### 2. 写入测试数据到蓝色 Redis
 
@@ -75,7 +75,7 @@ cd redis-blue-green
 ```
 
 这个脚本会显示：
-- Redis 4.0 和 Valkey 8.2 的键数量对比
+- Redis 4.0 和 Valkey 8.1 的键数量对比
 - 内存使用情况
 - 命令执行统计
 - 抽样数据一致性检查
@@ -451,7 +451,7 @@ done
    - 建议在低负载时执行全量同步
 
 4. **版本兼容性**
-   - 本环境演示 Redis 4.0.10 → Valkey 8.2 的迁移
+   - 本环境演示 Redis 4.0.10 → Valkey 8.1 的迁移
    - Valkey 100% 兼容 Redis 协议，所有 Redis 命令正常工作
    - Redis-Shake 支持 Redis 2.8 到 7.x 以及 Valkey 的所有版本
 

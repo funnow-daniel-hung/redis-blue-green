@@ -25,7 +25,7 @@ BLUE_COUNT=$(docker exec redis-blue redis-cli DBSIZE | tr -d '\r')
 GREEN_COUNT=$(docker exec redis-green redis-cli DBSIZE | tr -d '\r')
 
 echo "蓝色 Redis 4.0: $BLUE_COUNT 个键"
-echo "绿色 Valkey 8.2: $GREEN_COUNT 个键"
+echo "绿色 Valkey 8.1: $GREEN_COUNT 个键"
 
 if [ "$BLUE_COUNT" -eq "$GREEN_COUNT" ]; then
     echo "✓ 键数量一致"
