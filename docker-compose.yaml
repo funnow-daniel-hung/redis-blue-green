@@ -60,6 +60,23 @@ services:
       - sync  # 使用 profile 控制，默认不启动
     restart: "no"
 
+  # Redis-Full-Check 数据一致性验证工具
+  redis-full-check:
+    build:
+      context: ./redis-full-check
+      dockerfile: Dockerfile
+    container_name: redis-full-check
+    volumes:
+      - ./redis-full-check/results:/app/results
+    networks:
+      - redis-network
+    depends_on:
+      - redis-blue
+      - redis-green
+    profiles:
+      - verify
+    restart: "no"
+
 networks:
   redis-network:
     driver: bridge

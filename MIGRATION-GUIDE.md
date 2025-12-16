@@ -23,24 +23,7 @@
 
 ## 快速开始
 
-### 方法一：一键完整演示（推荐）
-
-```bash
-cd redis-blue-green
-./scripts/quick-start.sh
-# 选择选项 1 - 完整演示
-```
-
-这个脚本会自动完成：
-- ✅ 启动 Redis 4.0.10 和 Valkey 8.1 实例
-- ✅ 导入 10,000+ 条测试数据
-- ✅ 创建 RDB 备份
-- ✅ 启动 redis-shake 进行全量同步
-- ✅ 测试 PSYNC 增量同步
-- ✅ 验证数据一致性
-- ✅ 显示详细日志
-
-### 方法二：手动分步执行
+### 手动分步执行
 
 #### 1️⃣ 启动两个 Redis 实例
 
@@ -91,25 +74,7 @@ docker exec redis-blue redis-cli GET user:100:name
 # 输出: "User_100"
 ```
 
-#### 3️⃣ （可选）创建 RDB 备份
-
-```bash
-# 触发 RDB 备份
-docker exec redis-blue redis-cli BGSAVE
-
-# 检查备份状态
-docker exec redis-blue redis-cli LASTSAVE
-
-# 查看 RDB 文件
-docker exec redis-blue ls -lh /data/dump.rdb
-```
-
-💡 **RDB 备份的用途**：
-- 离线迁移：可以复制 RDB 文件到新服务器恢复
-- 备份保险：在线迁移前的安全保障
-- 本演示中：redis-shake 会通过 SYNC 命令自动获取 RDB
-
-#### 4️⃣ 启动 redis-shake 同步
+#### 3️⃣ 启动 redis-shake 同步
 
 ```bash
 docker-compose --profile sync up -d redis-shake
@@ -120,63 +85,70 @@ docker-compose --profile sync up -d redis-shake
 docker logs redis-shake
 ```
 
-#### 5️⃣ 监控同步进度
+#### 4️⃣ 查看同步日志
 
-**实时查看日志**：
+等待全量同步完成，查看日誌：
 ```bash
 docker logs -f redis-shake
 ```
 
-**检查同步状态**：
-```bash
-./scripts/check-sync.sh
-```
+**看到以下信息表示同步完成**：
+- `rdb sync done, start sync aof` - 全量同步完成
+- `syncing aof, diff=[0]` - 增量同步中，差异为 0
 
-**手动对比数据**：
-```bash
-# 源库键数量
-docker exec redis-blue redis-cli DBSIZE
+按 `Ctrl+C` 退出日志查看。
 
-# 目标库键数量
-docker exec redis-green redis-cli DBSIZE
+#### 5️⃣ 测试增量同步（PSYNC）
 
-# 对比内存使用
-docker exec redis-blue redis-cli INFO memory | grep used_memory_human
-docker exec redis-green redis-cli INFO memory | grep used_memory_human
-```
-
-#### 6️⃣ 测试增量同步（PSYNC）
-
-**向源库写入新数据**：
+向源库写入新数据：
 ```bash
 docker exec redis-blue redis-cli SET test_sync_key "test_value_$(date +%s)"
-docker exec redis-blue redis-cli LPUSH test_list "item1" "item2" "item3"
-docker exec redis-blue redis-cli HSET test_hash field1 value1 field2 value2
 ```
 
-**等待 2-3 秒，检查目标库**：
+等待 2-3 秒，检查目标库：
 ```bash
 docker exec redis-green redis-cli GET test_sync_key
-docker exec redis-green redis-cli LRANGE test_list 0 -1
-docker exec redis-green redis-cli HGETALL test_hash
 ```
 
-**批量测试**：
+如果能读取到数据，说明增量同步正常。
+
+#### 6️⃣ 数据一致性验证
+
+使用 **redis-full-check** 进行最终验证：
+
 ```bash
-# 写入 1000 条新数据
-docker exec redis-blue bash -c '
-for i in {20001..21000}; do
-    redis-cli SET "new_key:$i" "value_$i" > /dev/null
-done
-'
-
-# 等待同步
-sleep 3
-
-# 检查键数量是否一致
-docker exec redis-blue redis-cli DBSIZE
-docker exec redis-green redis-cli DBSIZE
+./scripts/full-verify.sh
 ```
+
+**验证输出示例**（成功）：
+```
+======================================================
+验证结果摘要
+======================================================
+
+键级别差异: 0 个
+
+✓ 数据完全一致！
+```
+
+**如果发现差异**：
+
+```bash
+# 检查同步状态
+docker logs redis-shake | tail -50
+
+# 等待同步完成
+sleep 30
+
+# 重新验证
+./scripts/full-verify.sh
+```
+
+**验证通过标准**：
+- ✅ 键差异 = 0
+- ✅ 同步延迟 < 1 秒（通过 `docker logs redis-shake` 查看）
+
+满足以上条件后，可以安全进行应用切换
 
 ## 理解同步原理
 
@@ -292,16 +264,8 @@ pipeline_count_limit = 2048  # 增加管道大小
 ### Q2: 如何验证数据一致性？
 
 ```bash
-# 使用 check-sync.sh 脚本
-./scripts/check-sync.sh
-
-# 或手动对比
-docker exec redis-blue redis-cli --scan | wc -l
-docker exec redis-green redis-cli --scan | wc -l
-
-# 检查具体键值
-docker exec redis-blue redis-cli GET user:100:name
-docker exec redis-green redis-cli GET user:100:name
+# 使用 redis-full-check 进行完整验证
+./scripts/full-verify.sh
 ```
 
 ### Q3: 增量同步有延迟吗？
@@ -341,7 +305,7 @@ docker exec redis-green redis-cli GET $(docker exec redis-green redis-cli KEYS "
 sleep 5
 
 # 3. 最终数据验证
-./scripts/check-sync.sh
+./scripts/full-verify.sh
 
 # 4. 停止 redis-shake
 docker-compose stop redis-shake
@@ -356,6 +320,89 @@ docker-compose stop redis-shake
 # 8. 停止旧 Redis
 docker-compose stop redis-blue
 ```
+
+### Q6: 如何回滚（Rollback）？
+
+如果切换后发现问题，可以回滚到旧版本：
+
+**回滚场景**：
+- 新版本 Valkey 8.1 出现问题
+- 业务功能不兼容
+- 性能不符合预期
+
+**回滚步骤**：
+
+#### 1️⃣ 停止应用写入
+
+```bash
+# 停止应用，或将应用切换为只读模式
+```
+
+#### 2️⃣ 启动反向同步
+
+```bash
+# 执行回滚脚本（Green -> Blue）
+./scripts/rollback.sh
+
+# 脚本会：
+# 1. 确认操作
+# 2. 停止 forward 同步
+# 3. 启动 rollback 同步（使用 rollback.toml）
+# 4. 显示同步日志
+```
+
+查看回滚同步状态：
+```bash
+docker logs -f redis-shake-rollback
+```
+
+等待看到：
+- `syncing aof, diff=[0]` - 回滚同步完成
+
+#### 3️⃣ 验证回滚数据一致性
+
+```bash
+# 验证 Green -> Blue 的数据一致性
+./scripts/full-verify.sh rollback
+
+# 查看结果
+cat redis-full-check/results/result_rollback_*.txt
+
+# 空文件 = 数据完全一致
+```
+
+#### 4️⃣ 切换应用回旧版本
+
+```bash
+# 停止回滚同步
+docker stop redis-shake-rollback
+docker rm redis-shake-rollback
+
+# 修改应用配置
+# 将 Redis 连接地址从 localhost:6380 改回 localhost:6379
+
+# 重启应用
+# 应用现在连接到 Blue (Redis 4.0)
+
+# 验证业务正常
+```
+
+#### 5️⃣ 清理（可选）
+
+```bash
+# 如果确认不再需要 Green，可以停止
+docker-compose stop redis-green
+
+# 或完全删除 Green 的数据
+docker-compose down redis-green
+docker volume rm redis-blue-green_redis-green-data
+```
+
+**重要提示**：
+- ⚠️  回滚会覆盖 Blue 的数据，确保 Green 有最新数据
+- ⚠️  回滚前建议先备份 Blue 的数据
+- ✅ 回滚使用相同的 PSYNC 机制，支持增量同步
+- ✅ 可以在回滚后继续保持双向同步，随时再次切换
 
 ## 停止和清理
 
@@ -387,11 +434,11 @@ redis-blue-green/
 │   ├── shake.toml                # 同步配置
 │   └── logs/                     # 同步日志
 ├── scripts/
-│   ├── migration-demo.sh         # 完整演示脚本
-│   ├── quick-start.sh            # 快速启动菜单
-│   ├── check-sync.sh             # 检查同步状态
+│   ├── full-verify.sh            # 数据一致性验证
 │   ├── test-data.sh              # 测试数据生成
-│   └── view-logs.sh              # 日志查看工具
+│   ├── start-redis.sh            # 启动 Redis 实例
+│   ├── start-sync.sh             # 启动数据同步
+│   └── stop-all.sh               # 停止所有服务
 └── data/                         # 持久化数据
     ├── redis-blue/               # Redis 4.0 数据
     └── redis-green/              # Valkey 8.1 数据
@@ -413,56 +460,7 @@ log_level = "debug"
 empty_db_before_sync = true
 ```
 
-### 3. 只同步特定数据库
-
-编辑 `redis-shake/shake.toml`：
-```toml
-[filter]
-allow_db = [0, 1]  # 只同步 DB0 和 DB1
-```
-
-### 4. 过滤键名
-
-编辑 `redis-shake/shake.toml`：
-```toml
-[filter]
-allow_key_prefix = ["user:", "order:"]  # 只同步这些前缀的键
-block_key_prefix = ["temp:", "cache:"]   # 排除这些前缀的键
-```
-
-## 监控和告警
-
-**查看 redis-shake 状态接口**：
-```bash
-curl http://localhost:8001/
-```
-
-**监控脚本示例**：
-```bash
-#!/bin/bash
-while true; do
-    BLUE=$(docker exec redis-blue redis-cli DBSIZE)
-    GREEN=$(docker exec redis-green redis-cli DBSIZE)
-    DIFF=$((BLUE - GREEN))
-
-    echo "$(date) - 源库: $BLUE, 目标库: $GREEN, 差异: $DIFF"
-
-    if [ $DIFF -gt 100 ]; then
-        echo "⚠️  警告：同步延迟过大！"
-    fi
-
-    sleep 10
-done
-```
-
 ## 技术细节
-
-### PSYNC vs SYNC
-
-- **SYNC**（旧协议）：每次全量同步
-- **PSYNC**（新协议）：支持断点续传，只同步增量
-
-redis-shake 优先使用 PSYNC，如果 Redis 版本不支持则降级到 SYNC。
 
 ### RDB vs AOF 同步
 
@@ -487,8 +485,4 @@ redis-shake 同时使用两者：
 ✅ **可回滚**：迁移失败可快速切回旧版本
 ✅ **可验证**：提供完整的监控和验证工具
 
-现在开始你的迁移演示吧：
-
-```bash
-./scripts/quick-start.sh
-```
+现在开始你的迁移演示吧，按照上面的"手动分步执行"步骤操作。

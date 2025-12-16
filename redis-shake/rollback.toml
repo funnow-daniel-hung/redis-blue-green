@@ -1,0 +1,70 @@
+# Redis-Shake 回滚同步配置文件
+# 从绿色 Valkey 同步回蓝色 Redis（用于回滚）
+
+[sync_reader]
+# 源 Valkey 配置（绿色实例）
+cluster = false  # 不是集群模式
+address = "redis-green:6379"  # Docker 内部网络地址
+username = ""  # 无需认证
+password = ""  # 无需密码
+tls = false  # 不使用 TLS
+
+# 同步选项
+sync_rdb = true  # 执行全量同步（RDB）- 首次同步必须开启
+sync_aof = true  # 执行增量同步（AOF）- 使用 PSYNC 协议
+prefer_replica = false  # 从主节点同步
+try_diskless = false  # 不使用无盘同步
+
+# PSYNC 配置
+# sync_aof = true 会自动使用 PSYNC 协议进行增量同步
+# Redis-Shake 会模拟 slave 角色，通过 PSYNC 接收增量数据
+
+[redis_writer]
+# 目标 Redis 配置（蓝色实例）
+cluster = false
+address = "redis-blue:6379"  # Docker 内部网络地址
+username = ""
+password = ""
+tls = false
+off_reply = true  # 关闭回复以提高性能
+
+[filter]
+# 数据过滤配置（默认同步所有数据）
+allow_keys = []
+allow_key_prefix = []
+allow_key_suffix = []
+allow_key_regex = []
+block_keys = []
+block_key_prefix = []
+block_key_suffix = []
+block_key_regex = []
+allow_db = []  # 空表示所有数据库
+block_db = []
+
+[advanced]
+# 高级配置
+dir = "/app/data"  # 数据目录
+ncpu = 4  # 使用的 CPU 核心数
+
+# 监控端口
+pprof_port = 0  # 性能分析端口（0 表示禁用）
+status_port = 8001  # 状态监控端口
+
+# 日志配置
+log_file = "../logs/redis-shake-rollback.log"
+log_level = "info"  # 日志级别：debug, info, warn, error（改为 debug 可看到 PSYNC 详细信息）
+log_interval = 5  # 日志输出间隔（秒）
+log_rotation = true  # 启用日志轮转
+log_max_size = 512  # 单个日志文件最大大小（MB）
+log_max_age = 7  # 日志保留天数
+log_max_backups = 3  # 保留的日志文件数量
+log_compress = true  # 压缩旧日志文件
+
+# Redis 协议配置
+rdb_restore_command_behavior = "rewrite"  # RDB 恢复行为：rewrite（覆盖）或 panic（遇到冲突报错）
+pipeline_count_limit = 1024  # 管道命令数量限制
+target_redis_client_max_querybuf_len = 2147483648  # 目标 Redis 客户端查询缓冲区最大长度
+target_redis_proto_max_bulk_len = 512000000  # 目标 Redis 协议最大批量长度
+
+# 同步前清空目标数据库
+empty_db_before_sync = false  # 设置为 true 会在同步前清空目标 Redis

@@ -1,0 +1,23 @@
+# Redis 数据
+data/
+
+# Redis-Shake 日志
+redis-shake/logs/
+
+# Redis-Full-Check 结果
+redis-full-check/results/
+*.db
+*.db-journal
+
+# macOS
+.DS_Store
+
+# 临时文件
+*.tmp
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml

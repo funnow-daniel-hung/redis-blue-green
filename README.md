@@ -16,8 +16,16 @@ redis-blue-green/
 │   └── redis.conf
 ├── redis-shake/              # Redis-Shake 配置
 │   ├── Dockerfile
-│   ├── shake.toml
+│   ├── shake.toml            # 默认配置（forward）
+│   ├── forward.toml          # 正向同步配置 (Blue -> Green)
+│   ├── rollback.toml         # 回滚同步配置 (Green -> Blue)
 │   └── logs/                 # 同步日志目录
+├── redis-full-check/         # 数据一致性验证
+│   ├── Dockerfile
+│   ├── check.conf            # 默认配置（forward）
+│   ├── forward.conf          # 正向验证配置
+│   ├── rollback.conf         # 回滚验证配置
+│   └── results/              # 验证结果目录
 ├── data/                     # 数据持久化目录
 │   ├── redis-blue/
 │   ├── redis-green/
@@ -26,8 +34,8 @@ redis-blue-green/
     ├── start-redis.sh        # 启动 Redis 实例
     ├── test-data.sh          # 写入测试数据
     ├── start-sync.sh         # 启动数据同步
-    ├── check-sync.sh         # 检查同步状态
-    ├── view-logs.sh          # 查看日志
+    ├── full-verify.sh        # 数据一致性验证
+    ├── rollback.sh           # 回滚脚本
     └── stop-all.sh           # 停止所有服务
 ```
 
@@ -68,51 +76,38 @@ cd redis-blue-green
 
 ### 4. 监控同步进度
 
-#### 方法 1：使用检查脚本（推荐）
+查看 redis-shake 日志：
 
 ```bash
-./scripts/check-sync.sh
-```
-
-这个脚本会显示：
-- Redis 4.0 和 Valkey 8.1 的键数量对比
-- 内存使用情况
-- 命令执行统计
-- 抽样数据一致性检查
-
-#### 方法 2：查看实时日志
-
-```bash
-# 查看 Redis-Shake 容器日志
 docker logs -f redis-shake
-
-# 或使用日志查看工具（交互式）
-./scripts/view-logs.sh
 ```
 
-#### 方法 3：查看详细文件日志
-
-```bash
-tail -f redis-shake/logs/redis-shake.log
-```
+看到 `syncing aof, diff=[0]` 表示同步完成。
 
 ### 5. 验证数据一致性
 
-同步完成后，手动验证关键数据：
+使用 redis-full-check 进行完整验证：
 
 ```bash
-# 检查蓝色 Redis
-docker exec redis-blue redis-cli GET user:1000:name
-docker exec redis-blue redis-cli HGETALL product:2000
-docker exec redis-blue redis-cli DBSIZE
-
-# 检查绿色 Redis
-docker exec redis-green redis-cli GET user:1000:name
-docker exec redis-green redis-cli HGETALL product:2000
-docker exec redis-green redis-cli DBSIZE
+./scripts/full-verify.sh
 ```
 
-### 6. 停止服务
+### 6. 回滚操作（Rollback）
+
+如果切换到 Valkey 8.1 后出现问题，可以回滚：
+
+```bash
+# 执行回滚脚本（Green -> Blue）
+./scripts/rollback.sh
+
+# 验证回滚数据一致性
+./scripts/full-verify.sh rollback
+
+# 查看结果
+cat redis-full-check/results/result_rollback_*.txt
+```
+
+### 7. 停止服务
 
 ```bash
 # 停止所有服务（保留数据）
@@ -161,9 +156,6 @@ docker logs redis-shake
 
 # 实时跟踪日志
 docker logs -f redis-shake
-
-# 使用交互式日志查看器
-./scripts/view-logs.sh
 ```
 
 ## Redis-Shake 配置说明
@@ -223,20 +215,31 @@ Redis-Shake 会输出详细的同步信息：
    tail -f redis-shake/logs/redis-shake.log
    ```
 
-3. **交互式工具**
-   ```bash
-   ./scripts/view-logs.sh
-   ```
-
 ## 数据验证
 
-### 自动化检查
+### 数据一致性验证
 
-使用提供的检查脚本：
+使用 **redis-full-check** 进行数据一致性校验：
 
 ```bash
-./scripts/check-sync.sh
+# 运行验证
+./scripts/full-verify.sh
+
+# 查看结果
+cat redis-full-check/results/result_*.txt
 ```
+
+**验证说明**：
+- 配置文件：`redis-full-check/check.conf`
+- 可调整比对模式、轮次、QPS 限制等参数
+- 验证结果保存为文本文件
+
+**结果解读**：
+- 空文件或 0 行：数据完全一致
+- 有差异：每行显示差异的键和类型
+  - `lack_target`：目标库缺少键
+  - `lack_source`：源库缺少键（目标多余）
+  - `value`：值不同
 
 ### 手动验证
 
@@ -302,7 +305,7 @@ docker-compose --profile sync restart redis-shake
 **检查方法**：
 ```bash
 # 运行一致性检查
-./scripts/check-sync.sh
+./scripts/full-verify.sh
 
 # 查看 Redis-Shake 日志中的错误
 docker logs redis-shake | grep -i error
@@ -344,23 +347,7 @@ docker exec redis-blue redis-cli SET new_key "new_value"
 docker exec redis-green redis-cli GET new_key
 ```
 
-### 2. 自定义数据过滤
-
-编辑 `redis-shake/shake.toml` 中的 `[filter]` 部分：
-
-```toml
-[filter]
-# 只同步特定前缀的键
-allow_key_prefix = ["user:", "product:"]
-
-# 排除特定键
-block_keys = ["temp_data", "cache_*"]
-
-# 只同步特定数据库
-allow_db = [0, 1]
-```
-
-### 3. 性能调优
+### 2. 性能调优
 
 ```toml
 [advanced]
@@ -373,15 +360,6 @@ target_redis_proto_max_bulk_len = 512000000
 
 # 使用更多 CPU
 ncpu = 8
-```
-
-### 4. 监控同步状态 API
-
-Redis-Shake 提供了 HTTP 状态端口（默认 8001）：
-
-```bash
-# 查看同步状态（在 redis-shake 容器内）
-docker exec redis-shake wget -qO- http://localhost:8001/
 ```
 
 ## 测试场景
@@ -402,7 +380,7 @@ docker exec redis-shake wget -qO- http://localhost:8001/
 sleep 10
 
 # 5. 验证数据
-./scripts/check-sync.sh
+./scripts/full-verify.sh
 ```
 
 ### 场景 2：实时增量同步测试
@@ -429,8 +407,8 @@ for i in {1..100000}; do
   docker exec redis-blue redis-cli SET "bulk:$i" "value_$i"
 done
 
-# 监控同步进度
-./scripts/check-sync.sh
+# 验证数据
+./scripts/full-verify.sh
 ```
 
 ## 注意事项
