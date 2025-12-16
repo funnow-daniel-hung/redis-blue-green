@@ -9,15 +9,30 @@ username = ""  # 无需认证
 password = ""  # 无需密码
 tls = false  # 不使用 TLS
 
-# 同步选项
-sync_rdb = true  # 执行全量同步（RDB）- 首次同步必须开启
-sync_aof = true  # 执行增量同步（AOF）- 使用 PSYNC 协议
-prefer_replica = false  # 从主节点同步
-try_diskless = false  # 不使用无盘同步
+# ========================================
+# PSYNC 同步配置
+# ========================================
+# redis-shake 通过 PSYNC 协议模拟从库，分两个阶段同步：
+#
+# 阶段 1: 全量同步（sync_rdb）
+#   - redis-shake 发送 PSYNC ? -1
+#   - 源 Redis 回应 +FULLRESYNC <runid> <offset>
+#   - 源 Redis 发送 RDB 快照（二进制数据）
+#   - redis-shake 解析 RDB，写入目标 Redis
+#
+# 阶段 2: 增量同步（sync_aof）
+#   - 源 Redis 持续发送写命令（RESP 格式，类似 AOF）
+#   - redis-shake 实时转发到目标 Redis
+#
+# 注意：
+#   - sync_aof 名称容易误导，实际是"接收命令流"
+#   - 源 Redis 不需要开启 AOF 持久化！
+#   - 这是主从复制的标准流程，与 AOF 持久化无关
 
-# PSYNC 配置
-# sync_aof = true 会自动使用 PSYNC 协议进行增量同步
-# Redis-Shake 会模拟 slave 角色，通过 PSYNC 接收增量数据
+sync_rdb = true  # 阶段 1: 全量同步（接收 RDB 快照）
+sync_aof = true  # 阶段 2: 增量同步（接收命令流，类似 AOF 格式）
+prefer_replica = false  # 从主节点同步（不从从库同步）
+try_diskless = false  # 不使用无盘复制
 
 [redis_writer]
 # 目标 Redis 配置（绿色实例）
@@ -44,6 +59,22 @@ block_db = []
 [advanced]
 # 高级配置
 dir = "/app/data"  # 数据目录
+
+# ========================================
+# ncpu - 并发线程数
+# ========================================
+# 含义：Redis-Shake 用多少个线程来处理同步
+#
+# 调整建议：
+#   - 取决于运行 Redis-Shake 的 EC2 机器的核数
+#   - 公式：ncpu ≈ EC2 vCPU 数量 - 1（留一点给系统）
+#   - 例如：4核 EC2 → ncpu = 4
+#          8核 EC2 → ncpu = 8
+#
+# 注意：
+#   - 如果源端 Redis 是单线程的（非集群），设置太高也没用
+#   - 瓶颈在源端读取上，不在 Redis-Shake
+#
 ncpu = 4  # 使用的 CPU 核心数
 
 # 监控端口
@@ -62,9 +93,42 @@ log_compress = true  # 压缩旧日志文件
 
 # Redis 协议配置
 rdb_restore_command_behavior = "rewrite"  # RDB 恢复行为：rewrite（覆盖）或 panic（遇到冲突报错）
+
+# ========================================
+# pipeline_count_limit - 管道并发数
+# ========================================
+# 含义：Redis-Shake 一次性打包发送给目标端的命令数量
+#
+# 调整建议：
+#   - 默认值：1024（保守）或 4096（激进）
+#   - 同步速度慢 + 网络延迟高 → 调大（如 4096）
+#   - 目标端 CPU 飙升或 OOM → 调小（如 1024 或 512）
+#
+# 风险：
+#   - 设置过大会导致目标端处理不过来
+#   - 阻塞正常的业务请求（虽然绿环境还没接流量）
+#   - 太高容易导致连接断开
+#
 pipeline_count_limit = 1024  # 管道命令数量限制
+
+# ========================================
+# target_redis_client_max_querybuf_len - 目标端查询缓冲区
+# ========================================
+# 含义：防止发送的数据包太大，超过目标端限制而被强制断开连接
+#
+# 调整建议：
+#   - 必须小于目标 Redis 实例配置的 client-query-buffer-limit
+#   - AWS ElastiCache 默认值：1GB (1073741824 bytes)
+#   - 建议：512MB (512000000) 是安全的
+#   - 如果有很多几 MB 的大 Key，才需要关注这个值
+#
+# 注意：
+#   - 2147483648 = 2GB（当前值）
+#   - 如果目标端内存小，建议改为 512000000 (512MB)
+#
 target_redis_client_max_querybuf_len = 2147483648  # 目标 Redis 客户端查询缓冲区最大长度
-target_redis_proto_max_bulk_len = 512000000  # 目标 Redis 协议最大批量长度
+
+target_redis_proto_max_bulk_len = 512000000  # 目标 Redis 协议最大批量长度（通常不需要修改）
 
 # 同步前清空目标数据库
 empty_db_before_sync = false  # 设置为 true 会在同步前清空目标 Redis
