@@ -7,6 +7,7 @@
 - ✅ **零停机迁移**：使用 redis-shake 进行在线同步（RDB + PSYNC）
 - ✅ **数据验证**：使用 redis-full-check 确保数据一致性
 - ✅ **支持回滚**：Green → Blue 反向同步，快速回退
+- ✅ **压力测试**：redis-benchmark 高并发测试，验证 15,000 QPS 同步能力
 - ✅ **容器化部署**：Docker Compose 一键启动，隔离环境
 - ✅ **生产级配置**：详细的性能参数说明和调优建议
 
@@ -58,6 +59,10 @@
 ### 快速测试（5分钟）
 
 ```bash
+# 0. 清理旧数据（避免重复写入导致验证失败）
+docker-compose down
+rm -rf data/redis-blue data/redis-green
+
 # 1. 启动环境
 docker-compose up -d redis-blue redis-green
 
@@ -127,6 +132,30 @@ docker logs -f redis-shake
 cat redis-full-check/results/result_rollback_*.txt
 ```
 
+### 压力测试（可选）
+
+```bash
+# 执行高并发压力测试（15,000 QPS）
+./scripts/stress-test.sh
+
+# 手动启动监控（实时查看同步状态）
+./scripts/monitor-sync.sh
+
+# 查看压测结果
+cat stress-test-result-*.csv
+
+# 压测后验证数据一致性
+./scripts/full-verify.sh forward
+```
+
+**测试参数**：
+- 并发客户端：300
+- 总请求次数：1,000,000
+- 数据大小：512 Bytes
+- 目标 QPS：15,000
+
+**验收标准**：同步延迟 < 15 秒，数据 0 差异
+
 ### 监控和检查
 
 ```bash
@@ -147,11 +176,20 @@ docker logs redis-green
 ### 停止和清理
 
 ```bash
-# 停止所有服务（保留数据）
+# 停止基础服务（Redis Blue/Green）
 docker-compose down
 
-# 完全清理（删除数据）
-docker-compose down -v
+# 停止包含同步服务的所有容器
+docker-compose --profile sync down
+
+# 停止包含验证服务的所有容器
+docker-compose --profile verify down
+
+# 停止所有服务（包括所有 profile）
+docker-compose --profile sync --profile verify down
+
+# 完全清理（删除所有数据和容器）
+docker-compose --profile sync --profile verify down -v
 rm -rf data/ redis-shake/logs/ redis-full-check/results/
 ```
 
@@ -184,12 +222,11 @@ redis-blue-green/
 │   ├── redis-green/
 │   └── redis-shake/
 └── scripts/                   # 操作脚本
-    ├── start-redis.sh         # 启动 Redis 实例
     ├── test-data.sh           # 导入测试数据
-    ├── start-sync.sh          # 启动正向同步
     ├── full-verify.sh         # 数据一致性验证
     ├── rollback.sh            # 回滚脚本
-    └── stop-all.sh            # 停止所有服务
+    ├── monitor-sync.sh        # 实时监控同步状态
+    └── stress-test.sh         # 高并发压力测试
 ```
 
 ## 文档导航
@@ -200,6 +237,7 @@ redis-blue-green/
   - 关键日志解读
   - 常见问题 FAQ
   - 回滚操作指南
+  - 高并发压力测试
 
 - **[redis-full-check/README.md](./redis-full-check/README.md)** - 数据验证工具说明
   - 配置文件详解

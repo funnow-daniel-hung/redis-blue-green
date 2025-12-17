@@ -21,9 +21,9 @@
 2. 增量同步 (AOF)：持续接收主库写操作，实时同步新数据
 ```
 
+
 ## 快速开始
 
-### 手动分步执行
 
 #### 1️⃣ 启动两个 Redis 实例
 
@@ -55,25 +55,6 @@ docker exec redis-green redis-cli INFO SERVER | grep redis_version
 ./scripts/test-data.sh
 ```
 
-或手动导入：
-```bash
-docker exec redis-blue bash -c '
-for i in {1..1000}; do
-    redis-cli SET "user:$i:name" "User_$i"
-    redis-cli SET "user:$i:email" "user$i@example.com"
-done
-'
-```
-
-验证数据：
-```bash
-docker exec redis-blue redis-cli DBSIZE
-# 输出: (integer) 30003
-
-docker exec redis-blue redis-cli GET user:100:name
-# 输出: "User_100"
-```
-
 #### 3️⃣ 启动 redis-shake 同步
 
 ```bash
@@ -100,17 +81,36 @@ docker logs -f redis-shake
 
 #### 5️⃣ 测试增量同步（PSYNC）
 
-向源库写入新数据：
+使用 redis-benchmark 测试大量写入的同步能力：
+
 ```bash
-docker exec redis-blue redis-cli SET test_sync_key "test_value_$(date +%s)"
+# 记录当前键数量
+BEFORE_KEYS=$(docker exec redis-green redis-cli DBSIZE)
+echo "压测前 Green 键数量: $BEFORE_KEYS"
+
+# 执行小规模压测（10,000 次写入，50 并发，使用 100,000 个随机键）
+docker exec redis-blue redis-benchmark -h redis-blue -p 6379 -c 50 -n 10000 -d 512 -t set -r 100000 --csv
+
+# 等待 3 秒让同步完成
+echo "等待同步完成..."
+sleep 3
+
+# 检查同步后的键数量
+AFTER_KEYS=$(docker exec redis-green redis-cli DBSIZE)
+echo "压测后 Green 键数量: $AFTER_KEYS"
+
+# 计算增加的键数量
+DIFF=$((AFTER_KEYS - BEFORE_KEYS))
+echo "新增键数量: $DIFF (预期: ~10000)"
+
+# 检查 redis-shake 同步状态
+docker logs redis-shake 2>&1 | tail -5 | grep "diff="
 ```
 
-等待 2-3 秒，检查目标库：
-```bash
-docker exec redis-green redis-cli GET test_sync_key
-```
-
-如果能读取到数据，说明增量同步正常。
+**预期结果**：
+- Green 键数量增加约 10,000 个
+- redis-shake 日志显示 `diff=[0]`（同步延迟为 0）
+- 说明增量同步正常工作
 
 #### 6️⃣ 数据一致性验证
 
@@ -118,17 +118,6 @@ docker exec redis-green redis-cli GET test_sync_key
 
 ```bash
 ./scripts/full-verify.sh
-```
-
-**验证输出示例**（成功）：
-```
-======================================================
-验证结果摘要
-======================================================
-
-键级别差异: 0 个
-
-✓ 数据完全一致！
 ```
 
 **如果发现差异**：
@@ -150,27 +139,92 @@ sleep 30
 
 满足以上条件后，可以安全进行应用切换
 
-## 理解同步原理
 
-### redis-shake 如何工作
+## 停止和清理
 
-1. **模拟 Slave 角色**：
-   - redis-shake 连接到 Redis 4.0 (源)，发送 `PSYNC ? -1` 命令
-   - Redis 4.0 将 redis-shake 视为一个从库
 
-2. **全量同步阶段 (RDB)**：
-   ```
-   redis-shake → PSYNC ? -1
-   Redis 4.0  → +FULLRESYNC <runid> <offset>
-   Redis 4.0  → [发送 RDB 快照]
-   redis-shake → [解析 RDB，写入 Valkey 8.1]
-   ```
+**完全清理（删除所有数据）**：
+```bash
+docker-compose --profile sync --profile verify down -v
+rm -rf data/ redis-shake/logs/ redis-full-check/results/
+```
 
-3. **增量同步阶段 (AOF/PSYNC)**：
-   ```
-   Redis 4.0  → [持续发送写命令]
-   redis-shake → [实时转发到 Valkey 8.1]
-   ```
+## 高併發壓力測試（可選）
+
+在生產環境切換前，建議進行高併發壓力測試，驗證 redis-shake 是否能承受流量高峰。
+
+### 測試目標
+
+- **目標 QPS**：15,000（生產環境 1,430 QPS 的 10 倍安全係數）
+- **並發客戶端**：300（覆蓋線上 234 個連線）
+- **數據量**：100 萬個隨機 Key，約 500MB
+
+### 執行壓力測試
+
+```bash
+# 執行完整壓力測試（包含監控和驗證）
+./scripts/stress-test.sh
+```
+
+**腳本自動執行**：
+1. ✅ 環境檢查
+2. ✅ 記錄壓測前狀態
+3. ✅ 啟動同步監控（背景執行）
+4. ✅ 執行 redis-benchmark 壓測
+5. ✅ 等待同步完成（最多 15 秒）
+6. ✅ 記錄壓測後狀態
+7. ✅ 數據一致性驗證
+8. ✅ 生成測試報告
+
+**測試報告示例**：
+```
+======================================================
+測試報告
+======================================================
+
+壓測配置：
+  - 並發客戶端: 300
+  - 總請求次數: 1000000
+  - 實際耗時: 68 秒
+  - 實際 QPS: 14705
+
+同步性能：
+  - 同步延遲: 3 秒 (標準: < 15 秒) ✓
+
+數據一致性：
+  - 鍵差異: 0 ✓
+
+=========================================
+壓力測試通過！✓
+=========================================
+```
+
+### 驗收標準
+
+| 指標 | 標準 | 說明 |
+|------|------|------|
+| 同步延遲 | < 15 秒 | 壓測停止後，diff 值歸零時間 |
+| 數據一致性 | 0 差異 | redis-full-check 驗證結果 |
+| Target CPU | < 60% | 目標 Redis CPU 使用率 |
+| Target 記憶體 | 約 500MB 增加 | 無 Eviction 或 OOM |
+
+**如果測試不通過**：
+
+1. **同步延遲過長（> 15 秒）**：
+   - 調整 `redis-shake/forward.toml`：
+     ```toml
+     pipeline_count_limit = 4096  # 增加管道數（默認 1024）
+     ncpu = 8                      # 增加 CPU 核心數
+     ```
+
+2. **目標端 CPU 過高（> 60%）**：
+   - 減少 `pipeline_count_limit`
+   - 檢查目標端實例大小
+
+3. **記憶體異常**：
+   - 檢查是否有 Eviction：`docker exec redis-green redis-cli INFO STATS | grep evicted`
+   - 增加目標端記憶體限制
+
 
 ### 查看 PSYNC 日志
 
@@ -403,86 +457,3 @@ docker volume rm redis-blue-green_redis-green-data
 - ⚠️  回滚前建议先备份 Blue 的数据
 - ✅ 回滚使用相同的 PSYNC 机制，支持增量同步
 - ✅ 可以在回滚后继续保持双向同步，随时再次切换
-
-## 停止和清理
-
-**停止所有服务（保留数据）**：
-```bash
-docker-compose down
-```
-
-**完全清理（删除数据）**：
-```bash
-docker-compose down -v
-rm -rf data/ redis-shake/logs/
-```
-
-**只停止 redis-shake**：
-```bash
-docker-compose stop redis-shake
-```
-
-## 文件结构
-
-```
-redis-blue-green/
-├── docker-compose.yaml           # 服务编排
-├── redis-blue/redis.conf         # Redis 4.0 配置
-├── redis-green/redis.conf        # Valkey 8.1 配置
-├── redis-shake/
-│   ├── Dockerfile                # redis-shake 镜像
-│   ├── shake.toml                # 同步配置
-│   └── logs/                     # 同步日志
-├── scripts/
-│   ├── full-verify.sh            # 数据一致性验证
-│   ├── test-data.sh              # 测试数据生成
-│   ├── start-redis.sh            # 启动 Redis 实例
-│   ├── start-sync.sh             # 启动数据同步
-│   └── stop-all.sh               # 停止所有服务
-└── data/                         # 持久化数据
-    ├── redis-blue/               # Redis 4.0 数据
-    └── redis-green/              # Valkey 8.1 数据
-```
-
-## 进阶配置
-
-### 1. 启用详细日志
-
-编辑 `redis-shake/shake.toml`：
-```toml
-log_level = "debug"
-```
-
-### 2. 同步前清空目标库
-
-编辑 `redis-shake/shake.toml`：
-```toml
-empty_db_before_sync = true
-```
-
-## 技术细节
-
-### RDB vs AOF 同步
-
-| 特性 | RDB | AOF (PSYNC) |
-|------|-----|-------------|
-| 同步类型 | 全量 | 增量 |
-| 数据完整性 | 时间点快照 | 实时 |
-| 性能影响 | 较大 | 较小 |
-| 适用场景 | 初始同步 | 持续同步 |
-
-redis-shake 同时使用两者：
-1. 启动时通过 RDB 完成全量同步
-2. 随后通过 AOF (PSYNC) 持续增量同步
-
-## 总结
-
-这个环境完整模拟了生产环境的 Redis 迁移流程：
-
-✅ **零停机时间**：业务无需中断
-✅ **数据一致性**：增量同步保证数据完整
-✅ **版本跨越**：支持大版本升级（4.0.10 → 8.1）
-✅ **可回滚**：迁移失败可快速切回旧版本
-✅ **可验证**：提供完整的监控和验证工具
-
-现在开始你的迁移演示吧，按照上面的"手动分步执行"步骤操作。

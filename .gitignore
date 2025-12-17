@@ -9,6 +9,13 @@ redis-full-check/results/
 *.db
 *.db-journal
 
+# 压力测试结果
+stress-test-*.csv
+stress-test-*.log
+
+# 监控日志
+stress-test-monitor-*.log
+
 # macOS
 .DS_Store
 
